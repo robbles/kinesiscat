@@ -3,15 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kinesis"
 	"github.com/robbles/kinesis_worker"
 )
 
 var (
 	debug        bool
+	region       string
 	streamName   string
 	position     string
 	outputFormat string
@@ -22,6 +24,7 @@ var (
 func main() {
 
 	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
+	flag.StringVar(&region, "region", "us-west-1", "AWS region")
 	flag.StringVar(&streamName, "stream-name", "events", "Kinesis stream name")
 	flag.StringVar(&position, "position", "LATEST", "Position in stream")
 	flag.StringVar(&outputFormat, "format", "data", "What to output for each record: sequence, partition-key, or data")
@@ -30,11 +33,12 @@ func main() {
 	flag.Parse()
 
 	if debug {
-		kinesis_worker.SetLogLevel("DEBUG")
+		log.SetLevel(log.DebugLevel)
+		kinesis_worker.Logger.Level = log.DebugLevel
 	}
 
 	worker := kinesis_worker.StreamWorker{
-		Region:       "us-west-1",
+		AwsConfig:    &aws.Config{Region: region},
 		StreamName:   streamName,
 		IteratorType: position,
 		BatchSize:    batchSize,
