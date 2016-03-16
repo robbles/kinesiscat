@@ -8,7 +8,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kinesis"
-	"github.com/robbles/kinesis_worker"
+	"github.com/robbles/kinesiscat/worker"
 )
 
 var (
@@ -38,7 +38,7 @@ func main() {
 	}
 
 	worker := kinesis_worker.StreamWorker{
-		AwsConfig:    &aws.Config{Region: region},
+		AwsConfig:    &aws.Config{Region: aws.String(region)},
 		StreamName:   streamName,
 		IteratorType: position,
 		BatchSize:    batchSize,
