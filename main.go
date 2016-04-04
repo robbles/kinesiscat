@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"time"
@@ -8,6 +9,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/kinesis"
+	"github.com/jmespath/go-jmespath"
 	"github.com/robbles/kinesiscat/worker"
 )
 
@@ -19,10 +21,10 @@ var (
 	outputFormat string
 	batchSize    int64
 	sleepTime    int64
+	jsonFilter   string
 )
 
 func main() {
-
 	flag.BoolVar(&debug, "debug", false, "Enable debug logging")
 	flag.StringVar(&region, "region", "us-west-1", "AWS region")
 	flag.StringVar(&streamName, "stream-name", "events", "Kinesis stream name")
@@ -30,6 +32,7 @@ func main() {
 	flag.StringVar(&outputFormat, "format", "data", "What to output for each record: sequence, partition-key, or data")
 	flag.Int64Var(&batchSize, "batch-size", 1, "How many records to fetch in each call")
 	flag.Int64Var(&sleepTime, "sleep-time", 1000, "How long to sleep between calls (ms)")
+	flag.StringVar(&jsonFilter, "filter", "", "A JMESPath filter to apply to each message")
 	flag.Parse()
 
 	if debug {
@@ -61,17 +64,33 @@ const (
 )
 
 func outputRecord(record *kinesis.Record, format string) {
-	var output *string
 	switch format {
 	case DATA:
-		data := string(record.Data)
-		output = &data
+		outputData(record.Data)
 	case PARTITION_KEY:
-		output = record.PartitionKey
+		fmt.Println(record.PartitionKey)
 	case SEQUENCE:
-		output = record.SequenceNumber
-	default:
-		output = record.SequenceNumber
+		fmt.Println(record.SequenceNumber)
 	}
-	fmt.Println(*output)
+}
+
+func outputData(data []byte) {
+	message := string(data)
+
+	if jsonFilter != "" {
+		var obj interface{}
+		json.Unmarshal(data, &obj)
+		result, err := jmespath.Search(jsonFilter, obj)
+		if err != nil {
+			log.Errorf("Error executing expression: %s", err)
+		}
+		toJSON, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			log.Errorf("Error serializing result to JSON: %s", err)
+		}
+		fmt.Println(string(toJSON))
+		return
+	}
+
+	fmt.Println(message)
 }
