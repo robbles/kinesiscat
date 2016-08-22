@@ -14,14 +14,16 @@ import (
 )
 
 var (
-	debug        bool
-	region       string
-	streamName   string
-	position     string
-	outputFormat string
-	batchSize    int64
-	sleepTime    int64
-	jsonFilter   string
+	debug         bool
+	region        string
+	streamName    string
+	position      string
+	outputFormat  string
+	separator     string
+	nullSeparator bool
+	batchSize     int64
+	sleepTime     int64
+	jsonFilter    string
 )
 
 func main() {
@@ -30,6 +32,8 @@ func main() {
 	flag.StringVar(&streamName, "stream-name", "events", "Kinesis stream name")
 	flag.StringVar(&position, "position", "LATEST", "Position in stream")
 	flag.StringVar(&outputFormat, "format", "data", "What to output for each record: sequence, partition-key, or data")
+	flag.StringVar(&separator, "separator", "\n", "Separator to output between records")
+	flag.BoolVar(&nullSeparator, "0", false, "Use NULL character as the separator")
 	flag.Int64Var(&batchSize, "batch-size", 1, "How many records to fetch in each call")
 	flag.Int64Var(&sleepTime, "sleep-time", 1000, "How long to sleep between calls (ms)")
 	flag.StringVar(&jsonFilter, "filter", "", "A JMESPath filter to apply to each message")
@@ -38,6 +42,10 @@ func main() {
 	if debug {
 		log.SetLevel(log.DebugLevel)
 		kinesis_worker.Logger.Level = log.DebugLevel
+	}
+
+	if nullSeparator {
+		separator = "\x00"
 	}
 
 	worker := kinesis_worker.StreamWorker{
@@ -75,7 +83,7 @@ func outputRecord(record *kinesis.Record, format string) {
 }
 
 func outputData(data []byte) {
-	message := string(data)
+	var output []byte = data
 
 	if jsonFilter != "" {
 		var obj interface{}
@@ -88,9 +96,9 @@ func outputData(data []byte) {
 		if err != nil {
 			log.Errorf("Error serializing result to JSON: %s", err)
 		}
-		fmt.Println(string(toJSON))
+		output = toJSON
 		return
 	}
 
-	fmt.Println(message)
+	fmt.Printf("%s%s", output, separator)
 }
